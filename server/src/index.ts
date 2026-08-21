@@ -18,19 +18,22 @@ function bearer(req: Request): string {
   return a.startsWith("Bearer ") ? a.slice(7) : "";
 }
 
+// `grok` was added in 0.2.0; clients older than that omit it, so it stays
+// optional and every read defaults to 0.
 interface PushDay {
   date: string;
   tokens: number;
   cost: number;
   claude: number;
   codex: number;
+  grok?: number;
   sessions: number;
 }
 interface PushPayload {
   v: string;
   user: string;
   generatedAt: string;
-  totals: { tokens: number; cost: number; streak: number; bySource: { claude: number; codex: number } };
+  totals: { tokens: number; cost: number; streak: number; bySource: { claude: number; codex: number; grok?: number } };
   byModel: Record<string, number>;
   days: PushDay[];
 }
@@ -52,7 +55,7 @@ function daysToMap(p: PushPayload): Map<string, any> {
       date: d.date,
       tokens: d.tokens,
       cost: d.cost,
-      bySource: { claude: d.claude, codex: d.codex },
+      bySource: { claude: d.claude, codex: d.codex, grok: d.grok ?? 0 },
       byModel: {},
       sessions: new Set(),
     });
@@ -167,7 +170,7 @@ export default {
 
     if (path === "/") {
       return new Response(
-        "ccmap — coding heatmap for Claude Code + Codex\n\nGET /u/<user>.svg   badge\nPOST /api/push       push aggregates (Bearer PUSH_SECRET)\n",
+        "ccmap — coding heatmap for Claude Code + Codex + Grok\n\nGET /u/<user>.svg   badge\nPOST /api/push       push aggregates (Bearer PUSH_SECRET)\n",
         { headers: { "content-type": "text/plain; charset=utf-8" } }
       );
     }

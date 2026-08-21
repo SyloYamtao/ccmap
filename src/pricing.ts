@@ -19,6 +19,12 @@ const TABLE: Record<string, Price> = {
   // OpenAI / Codex (gpt-5.x family). OpenAI bills no separate cache-write; cached read = 0.1x in.
   "gpt-5": { in: 1.25, out: 10, cw: 1.25, cr: 0.125, cw1h: 1.25 },
   "codex": { in: 1.25, out: 10, cw: 1.25, cr: 0.125, cw1h: 1.25 },
+  // xAI / Grok CLI. Rarely consulted: the Grok CLI reports its own billed cost
+  // per turn and we use that when present, so these only cover turns that
+  // logged tokens without a cost (interrupted turns, older CLI builds).
+  "grok-4.6": { in: 2, out: 10, cw: 2, cr: 0.5, cw1h: 2 },
+  "grok-4.5": { in: 5, out: 25, cw: 5, cr: 1.25, cw1h: 5 },
+  "grok": { in: 3, out: 15, cw: 3, cr: 0.75, cw1h: 3 },
 };
 
 const FALLBACK: Price = { in: 3, out: 15, cw: 3.75, cr: 0.3, cw1h: 6 };

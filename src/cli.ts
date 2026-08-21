@@ -6,12 +6,13 @@ import { userInfo, homedir } from "node:os";
 import { createInterface } from "node:readline";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
-import { scan, currentStreak, type ScanResult } from "./parse.js";
+import { scan, currentStreak, SOURCES, type ScanResult } from "./parse.js";
 import { renderSVG, resolveTheme } from "./render.js";
 import { renderReport } from "./report.js";
 import type { DayStat } from "./parse.js";
 import { loadConfig, saveConfig, CONFIG_PATH, type Config } from "./config.js";
 import { ROLLUP_PATH } from "./rollup.js";
+import { SCAN_CACHE_PATH } from "./filecache.js";
 
 // Read from package.json at runtime so the version never drifts from npm.
 // dist/cli.js lives one level under the package root, next to package.json.
@@ -129,6 +130,7 @@ function buildPayload(res: ScanResult, cfg: Config) {
       cost: Math.round(d.cost * 100) / 100,
       claude: d.bySource.claude,
       codex: d.bySource.codex,
+      grok: d.bySource.grok,
       sessions: d.sessions.size,
     }));
   return {
@@ -209,14 +211,15 @@ function sparkline(days: Map<string, DayStat>, n = 30): string {
 }
 
 function cmdScan(cfg: Config) {
-  const res = scan({ pricing: cfg.pricing, rollupPath: ROLLUP_PATH });
+  const res = scan({ pricing: cfg.pricing, rollupPath: ROLLUP_PATH, cachePath: SCAN_CACHE_PATH });
   const streak = currentStreak(res.days);
   console.log(`ccmap ${VERSION} — local scan`);
   console.log(`  range:    ${res.firstDay ?? "-"} → ${res.lastDay ?? "-"}  (${res.days.size} active days)`);
   console.log(`  tokens:   ${res.totalTokens.toLocaleString()}`);
   console.log(`  cost~:    $${res.totalCost.toFixed(2)}  (estimate)`);
   console.log(`  streak:   ${streak} day(s)`);
-  console.log(`  source:   claude ${pct(res.bySource.claude, res.totalTokens)} · codex ${pct(res.bySource.codex, res.totalTokens)}`);
+  const mix = SOURCES.map((s) => `${s} ${pct(res.bySource[s], res.totalTokens)}`).join(" · ");
+  console.log(`  source:   ${mix}`);
   const top = Object.entries(res.byModel).sort((a, b) => b[1] - a[1]).slice(0, 6);
   console.log(`  models:`);
   for (const [m, v] of top) console.log(`    ${m.padEnd(28)} ${pct(v, res.totalTokens).padStart(4)}  ${v.toLocaleString()}`);
@@ -265,7 +268,7 @@ function cmdRender(cfg: Config, args: string[]) {
   // --hide-border kept as a no-op alias since border is now off by default)
   const border = args.includes("--border");
   const rounded = args.includes("--rounded");
-  const res = scan({ pricing: cfg.pricing, rollupPath: ROLLUP_PATH });
+  const res = scan({ pricing: cfg.pricing, rollupPath: ROLLUP_PATH, cachePath: SCAN_CACHE_PATH });
   const svg = renderSVG(
     res.days,
     { totalTokens: res.totalTokens, totalCost: res.totalCost, streak: currentStreak(res.days) },
@@ -278,7 +281,7 @@ function cmdRender(cfg: Config, args: string[]) {
 function cmdReport(cfg: Config, args: string[]) {
   const out = argVal(args, "--out") ?? "ccmap-report.html";
   const theme = argVal(args, "--theme") ?? cfg.theme ?? "claude";
-  const res = scan({ pricing: cfg.pricing, rollupPath: ROLLUP_PATH });
+  const res = scan({ pricing: cfg.pricing, rollupPath: ROLLUP_PATH, cachePath: SCAN_CACHE_PATH });
   const payload = buildPayload(res, cfg);
   const html = renderReport({ user: cfg.user, totals: payload.totals, byModel: payload.byModel, days: payload.days }, { theme, origin: cfg.endpoint });
   writeFileSync(out, html);
@@ -376,7 +379,7 @@ async function cmdPush(cfgIn: Config, hint = false, explicitUser?: string) {
   if (explicitUser && cleanName(explicitUser) !== cfg.user) {
     console.log(`note: already configured as "${cfg.user}". To switch names: ccmap login --user ${cleanName(explicitUser)}`);
   }
-  const res = scan({ pricing: cfg.pricing, rollupPath: ROLLUP_PATH });
+  const res = scan({ pricing: cfg.pricing, rollupPath: ROLLUP_PATH, cachePath: SCAN_CACHE_PATH });
   const payload = buildPayload(res, cfg);
   const base = (cfg.endpoint ?? "").replace(/\/$/, "");
   try {
@@ -560,6 +563,23 @@ function cmdStop() {
   else console.log("nothing to stop (no ccmap schedule was installed).");
 }
 
+// The schedule stores an absolute path to whatever copy of ccmap set it up. If
+// that copy is later moved, upgraded away or deleted, launchd/cron keeps firing
+// against a path that no longer resolves — the pushes just stop, quietly, and
+// the only trace is a stack trace in the daemon log. Surface it instead.
+function scheduledEntry(): string | null {
+  try {
+    if (process.platform === "darwin") {
+      const m = readFileSync(plistPath(), "utf8").match(/<string>([^<]*cli\.js)<\/string>/);
+      return m ? m[1] : null;
+    }
+    const m = readCrontab().match(/\S+cli\.js/);
+    return m ? m[0] : null;
+  } catch {
+    return null;
+  }
+}
+
 function cmdStatus(cfg: Config) {
   const active = scheduleActive();
   const min = cfg.intervalMin ?? 1440;
@@ -570,6 +590,11 @@ function cmdStatus(cfg: Config) {
   if (existsSync(daemonLog())) {
     const lines = readFileSync(daemonLog(), "utf8").trim().split("\n");
     if (lines[0]) console.log(`last log: ${lines[lines.length - 1]}`);
+  }
+  const entry = active ? scheduledEntry() : null;
+  if (entry && !existsSync(entry)) {
+    console.log(`\n  ⚠ the schedule points at ${entry}, which no longer exists —`);
+    console.log(`    every scheduled push since it moved has failed. Re-run \`ccmap start\` to repoint it.`);
   }
 }
 
@@ -609,7 +634,7 @@ function argVal(args: string[], flag: string): string | undefined {
 }
 
 function help() {
-  console.log(`ccmap ${VERSION} — coding heatmap for Claude Code + Codex
+  console.log(`ccmap ${VERSION} — coding heatmap for Claude Code + Codex + Grok
 
 Usage:
   ccmap scan                       Summarize local usage (no upload)

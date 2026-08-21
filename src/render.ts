@@ -1,4 +1,4 @@
-import type { DayStat } from "./parse.js";
+import { SOURCES, type DayStat } from "./sources.js";
 
 export interface RenderOptions {
   weeks?: number; // how many weeks back to show
@@ -156,7 +156,10 @@ export function renderSVG(
     let tip = key;
     if (ds && ds.tokens > 0) {
       const parts = [`${fmt(ds.tokens)} tok`, `$${ds.cost.toFixed(2)}`];
-      if (ds.bySource) parts.push(`claude ${fmt(ds.bySource.claude)} / codex ${fmt(ds.bySource.codex)}`);
+      if (ds.bySource) {
+        const mix = SOURCES.filter((s) => (ds.bySource[s] ?? 0) > 0).map((s) => `${s} ${fmt(ds.bySource[s])}`);
+        if (mix.length) parts.push(mix.join(" / "));
+      }
       if (ds.sessions && ds.sessions.size) parts.push(`${ds.sessions.size} sessions`);
       tip = `${key} · ${parts.join(" · ")}`;
     }

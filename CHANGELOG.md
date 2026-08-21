@@ -4,6 +4,54 @@ All notable changes to **ccmap** are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/), and versions track the npm
 package version (each release is tagged `vX.Y.Z` in git).
 
+## [0.2.0] — 2026-08-21
+
+### Added
+- **Grok is now a third source.** ccmap reads `~/.grok/sessions/**/updates.jsonl`
+  and folds xAI's Grok CLI into the same heatmap, totals, model mix and engine
+  split as Claude Code and Codex. Each user prompt closes with a `turn_completed`
+  event carrying that prompt's full usage roll-up, so one line per prompt is the
+  whole picture — and Grok sub-agents get their own session directory, so nothing
+  is double-counted.
+- **Grok cost comes from Grok.** The CLI reports what it billed per turn
+  (`costUsdTicks`, in nano-USD), which covers backend search and tool calls a
+  token table can't see, so ccmap uses that figure directly and only falls back
+  to the price table for turns that logged tokens without a cost.
+- **Per-file scan cache** (`~/.ccmap/scan-cache.json`). Grok session logs are an
+  order of magnitude larger than Claude's — several GB is normal — so an
+  unchanged log is replayed from its cached daily aggregate instead of re-read.
+  A warm `ccmap scan` over ~6 GB of logs now runs in about a second.
+
+### Fixed
+- **The daily rollup no longer discards one engine's history to keep another's.**
+  Merging live logs with the saved rollup picked the bigger *whole-day* record,
+  so a day where Claude's transcripts had been pruned but Grok's survived kept
+  the stored Claude figure and threw the Grok usage away. The merge now runs
+  per engine. Records written before this version have no engine split stored;
+  they are split on read (token counts from `bySource`, models by name, cost
+  apportioned by token share) so old history merges correctly too.
+- **Large session logs no longer break the scan.** Logs were read with
+  `readFileSync`, which throws outright past V8's max string length — reachable
+  with Grok, whose single-session logs can pass 900 MB. Scanning now streams,
+  and filters on the raw buffer, which is also what makes it faster despite
+  covering roughly five times more data.
+
+- **`ccmap status` now catches a dead schedule.** The launchd/cron entry stores
+  an absolute path to the copy of ccmap that created it; move or replace that
+  copy and the daily push fails silently, leaving only a stack trace in
+  `~/.ccmap/daemon.log`. `status` now checks the path still resolves and tells
+  you to re-run `ccmap start`.
+
+### Changed
+- Report and badge derive the engine split from one shared source list, so the
+  daily-volume chart, the donut and the badge tooltip all pick up a new engine
+  at once. Chart colours are now assigned by engine size, giving the two engines
+  you actually use the two most distinct steps of the theme palette; engines
+  with no usage are left out of the charts entirely.
+- The push payload gains `days[].grok` and `totals.bySource.grok`. Both are
+  optional on the server side, so an older client keeps pushing successfully —
+  but **self-hosted servers need a redeploy** to chart the new field.
+
 ## [0.1.16] — 2026-06-25
 
 ### Removed

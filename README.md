@@ -1,6 +1,6 @@
 # ccmap
 
-Coding heatmap for **Claude Code + Codex**. Scans your local CLI logs and renders a
+Coding heatmap for **Claude Code + Codex + Grok**. Scans your local CLI logs and renders a
 GitHub-style contribution heatmap — in your terminal, as a local SVG/HTML report, or
 published to a public **report page** (`https://.../u/<you>`) with an embeddable badge.
 
@@ -59,19 +59,27 @@ Don't want to install? `npx @tao-hpu/ccmap@latest scan` runs it once, always lat
 
 - Claude Code: `~/.claude/projects/**/*.jsonl` (assistant `message.usage`)
 - Codex: `~/.codex/sessions/YYYY/MM/DD/rollout-*.jsonl` (`token_count` events)
+- Grok: `~/.grok/sessions/**/updates.jsonl` (`turn_completed` events)
+
+Each engine you've used shows up on its own in the model mix, the daily chart and
+the engine-split donut; ones you haven't are simply absent. Grok's logs are much
+larger than the others (multi-GB is routine), so scans keep a small per-file
+cache at `~/.ccmap/scan-cache.json` and only re-read logs that have changed —
+a warm scan stays around a second no matter how much history has piled up.
 
 ## Local history (so your heatmap keeps filling up)
 
 Claude Code prunes its own session logs after ~30 days (`cleanupPeriodDays`,
-default 30), and Codex has its own retention — so the raw logs are a **rolling
-window**, not your full past. If a fresh heatmap looks sparse, that's why: the
+default 30), and Codex and Grok have their own retention — so the raw logs are a
+**rolling window**, not your full past. If a fresh heatmap looks sparse, that's why: the
 older transcripts are already gone from disk.
 
 To stop losing history going forward, every `scan` / `render` / `report` /
 `push` snapshots each day's totals into a tiny rollup at **`~/.ccmap/history.json`**
-(a few KB/year). Once a day is recorded it stays on the heatmap **even after
-Claude Code deletes the raw transcript** — so the map keeps lighting up over time.
-This is fully automatic and local: it touches **no** Claude Code / Codex config,
+(a few KB/year), kept per engine so one CLI's pruning never costs you another's
+history. Once a day is recorded it stays on the heatmap **even after Claude Code
+deletes the raw transcript** — so the map keeps lighting up over time. This is
+fully automatic and local: it touches **no** Claude Code / Codex / Grok config,
 and nothing extra leaves your machine.
 
 > Run regularly (e.g. `ccmap start`, which pushes daily) so each day is captured
@@ -84,8 +92,15 @@ Cost is an **estimate** from a built-in per-model price table (USD per 1M tokens
 `in` input, `out` output, `cw` 5-min cache write, `cr` cache read, `cw1h` 1-hour
 cache write). Defaults track current list prices — current Opus is `$5/$25`, Fable
 5 is `$10/$50`. Cache reads (the dominant cost in agent loops) and the two cache-write
-tiers Claude reports are all priced separately. Override any model in
-`~/.ccmap/config.json`:
+tiers Claude reports are all priced separately.
+
+Grok is the exception: its CLI records what it actually billed for each turn, so
+ccmap uses that number instead of estimating. It accounts for backend search and
+tool calls that a token count alone can't, which is why Grok's cost per token can
+look higher than the table would suggest. The Grok entries in the table are only
+a fallback for turns that logged tokens without a cost.
+
+Override any model in `~/.ccmap/config.json`:
 
 ```json
 { "pricing": { "claude-opus": { "in": 5, "out": 25, "cw": 6.25, "cr": 0.5, "cw1h": 10 } } }
@@ -164,13 +179,18 @@ interchangeable backends, same API:
 - **Node** — `src/server.ts`, zero-dep JSON-file store: `node dist/server.js` (env `CCMAP_DATA`, `PORT`).
 - **Cloudflare Worker** — `server/`, KV-backed: `wrangler deploy`.
 
+Push payloads are forward-compatible: fields a server doesn't know about are
+ignored, so an old server keeps accepting pushes from a new CLI. It just won't
+chart what it can't read — after the CLI learns a new engine (Grok, in 0.2.0),
+redeploy the server to see it on the hosted report page.
+
 Optional write gate: set `PUSH_SECRET`; clients pass `ccmap login --invite <code>`.
 No accounts: your first push mints a local secret and the server stores only its
 `sha256`, never the key itself — so back up `~/.ccmap/config.json`.
 
 ## Status
 
-- ✅ Local: `scan` / `render` / `report` / `login` / `push` / `start` — verified against real logs.
+- ✅ Local: `scan` / `render` / `report` / `login` / `push` / `start` — verified against real Claude Code, Codex and Grok logs.
 - ✅ Server: **live at `https://ccmap.fim.ai`** (Node, `src/server.ts`) — claim, per-user
   auth, badge + HTML report all verified end-to-end. Cloudflare Worker (`server/`) is an
   interchangeable alternative.

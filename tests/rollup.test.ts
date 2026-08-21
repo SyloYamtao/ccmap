@@ -11,19 +11,34 @@ import {
   dayStatToRecord,
   type DayRecord,
 } from "../src/rollup.js";
-import { scan, type DayStat } from "../src/parse.js";
+import { scan } from "../src/parse.js";
+import { emptySrc, fromSrc, type DayStat, type Source } from "../src/sources.js";
 
 function tmp(): string {
   return mkdtempSync(join(tmpdir(), "ccmap-"));
 }
 
-function dayStat(date: string, tokens: number, sessions = 1): DayStat {
+function dayStat(date: string, tokens: number, sessions = 1, source: Source = "claude"): DayStat {
   const s = new Set<string>();
   for (let i = 0; i < sessions; i++) s.add(`s${i}`);
-  return { date, tokens, cost: tokens / 1000, sessions: s, bySource: { claude: tokens, codex: 0 }, byModel: { m: tokens } };
+  const src = emptySrc();
+  src[source] = { tokens, cost: tokens / 1000, byModel: { [`${source}-m`]: tokens } };
+  return fromSrc(date, src, s);
 }
-function rec(date: string, tokens: number, sessions = 1): DayRecord {
-  return { date, tokens, cost: tokens / 1000, sessions, bySource: { claude: tokens, codex: 0 }, byModel: { m: tokens } };
+function rec(date: string, tokens: number, sessions = 1, source: Source = "claude"): DayRecord {
+  return dayStatToRecord(dayStat(date, tokens, sessions, source));
+}
+
+// A record in the pre-0.2.0 shape: flat fields only, no per-engine split.
+function legacyRec(date: string, tokens: number, sessions = 1): DayRecord {
+  return {
+    date,
+    tokens,
+    cost: tokens / 1000,
+    sessions,
+    bySource: { claude: tokens, codex: 0 },
+    byModel: { "claude-opus-4-8": tokens },
+  };
 }
 
 test("recordToDayStat reconstructs session count", () => {
@@ -80,20 +95,20 @@ test("scan persists days and they survive after raw logs are pruned", () => {
   writeFileSync(join(projDir, "session.jsonl"), line + "\n");
 
   // first scan sees the live log and freezes it into the rollup
-  const r1 = scan({ claudeDir: logDir, codexDir: emptyDir, rollupPath });
+  const r1 = scan({ claudeDir: logDir, codexDir: emptyDir, grokDir: emptyDir, rollupPath });
   assert.equal(r1.totalTokens, 150);
   const date = [...r1.days.keys()][0];
   assert.ok(date);
 
   // logs pruned: scan an empty dir — the day must still come from the rollup
-  const r2 = scan({ claudeDir: emptyDir, codexDir: emptyDir, rollupPath });
+  const r2 = scan({ claudeDir: emptyDir, codexDir: emptyDir, grokDir: emptyDir, rollupPath });
   assert.ok(r2.days.has(date), "pruned day should survive in rollup");
   assert.equal(r2.totalTokens, 150);
 });
 
 test("scan without rollupPath stays pure (no merge, no persistence)", () => {
   const emptyDir = tmp();
-  const r = scan({ claudeDir: emptyDir, codexDir: emptyDir });
+  const r = scan({ claudeDir: emptyDir, codexDir: emptyDir, grokDir: emptyDir });
   assert.equal(r.totalTokens, 0);
   assert.equal(r.days.size, 0);
 });
@@ -102,4 +117,45 @@ test("dayStatToRecord drops session ids to a count", () => {
   const r = dayStatToRecord(dayStat("2026-01-01", 100, 4));
   assert.equal(r.sessions, 4);
   assert.equal(r.bySource.claude, 100);
+});
+
+test("mergeDays keeps each engine's best day, not just the bigger record", () => {
+  // The day Claude's transcripts were pruned but Grok's survive: a whole-record
+  // max would keep the stored Claude figure and throw the live Grok away.
+  const live = new Map<string, DayStat>([["2026-01-01", dayStat("2026-01-01", 30, 1, "grok")]]);
+  const stored = new Map<string, DayRecord>([["2026-01-01", rec("2026-01-01", 500, 2, "claude")]]);
+  const merged = mergeDays(live, stored);
+  const d = merged.get("2026-01-01")!;
+  assert.equal(d.bySource.claude, 500);
+  assert.equal(d.bySource.grok, 30);
+  assert.equal(d.tokens, 530);
+  assert.equal(d.sessions.size, 2);
+});
+
+test("mergeDays splits a pre-0.2.0 record so a new engine can merge into it", () => {
+  const live = new Map<string, DayStat>([["2026-01-01", dayStat("2026-01-01", 30, 1, "grok")]]);
+  const stored = new Map<string, DayRecord>([["2026-01-01", legacyRec("2026-01-01", 500, 2)]]);
+  const d = mergeDays(live, stored).get("2026-01-01")!;
+  assert.equal(d.bySource.claude, 500);
+  assert.equal(d.bySource.grok, 30);
+  assert.equal(d.byModel["claude-opus-4-8"], 500);
+  assert.equal(d.byModel["grok-m"], 30);
+});
+
+test("a record round-trips through save/load with its engine split intact", () => {
+  const path = join(tmp(), "history.json");
+  const day = fromSrc(
+    "2026-01-01",
+    Object.assign(emptySrc(), {
+      claude: { tokens: 100, cost: 1, byModel: { "claude-opus-5": 100 } },
+      grok: { tokens: 40, cost: 2, byModel: { "grok-4.6-build": 40 } },
+    }),
+    new Set(["a"])
+  );
+  saveRollup(new Map([[day.date, dayStatToRecord(day)]]), path);
+  const back = recordToDayStat(loadRollup(path).get("2026-01-01")!);
+  assert.equal(back.tokens, 140);
+  assert.equal(back.cost, 3);
+  assert.equal(back.bySource.grok, 40);
+  assert.equal(back.src.claude.byModel["claude-opus-5"], 100);
 });

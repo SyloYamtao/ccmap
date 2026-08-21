@@ -1,7 +1,7 @@
 {
   "name": "@tao-hpu/ccmap",
-  "version": "0.1.16",
-  "description": "Coding heatmap for Claude Code + Codex — scan local logs, render a GitHub-style heatmap, push aggregates to a badge endpoint.",
+  "version": "0.2.0",
+  "description": "Coding heatmap for Claude Code + Codex + Grok — scan local logs, render a GitHub-style heatmap, push aggregates to a badge endpoint.",
   "type": "module",
   "bin": {
     "ccmap": "dist/cli.js"
@@ -30,6 +30,7 @@
   "keywords": [
     "claude-code",
     "codex",
+    "grok",
     "usage",
     "heatmap",
     "tokens",

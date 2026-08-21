@@ -1,4 +1,5 @@
 import { renderSVG, resolveTheme } from "./render.js";
+import { SOURCES, type Source } from "./sources.js";
 import { qrMatrix } from "./qr.js";
 
 // Render a URL as a self-contained "scan me" SVG chip: a light rounded card
@@ -23,9 +24,33 @@ function qrChip(url: string, x: number, y: number, size: number): string {
 // Normalized input shared by CLI (buildPayload) and Worker (PushPayload).
 export interface ReportData {
   user?: string;
-  totals: { tokens: number; cost: number; streak: number; bySource: { claude: number; codex: number } };
+  // `grok` arrived in 0.2.0 — older clients (and older stored payloads) omit it,
+  // so every read of a source field goes through `?? 0`.
+  totals: { tokens: number; cost: number; streak: number; bySource: Partial<Record<EngineKey, number>> };
   byModel: Record<string, number>;
-  days: { date: string; tokens: number; cost: number; claude: number; codex: number }[];
+  days: ({ date: string; tokens: number; cost: number } & Partial<Record<EngineKey, number>>)[];
+}
+
+// Display order and palette slot for each engine. Colours come from the active
+// theme's scale, so a new engine stays coherent across every theme.
+export type EngineKey = Source;
+const LABELS: Record<Source, string> = { claude: "Claude", codex: "Codex", grok: "Grok" };
+const ENGINES: { key: EngineKey; label: string }[] = SOURCES.map((key) => ({ key, label: LABELS[key] }));
+
+// A theme's scale is four steps of one hue, so only its ends read as clearly
+// different colours. Hand those to the engines the user actually leans on —
+// biggest gets the brightest step, second gets the darkest, the rest fill in —
+// and derive it once from lifetime totals so the same engine keeps the same
+// colour in every chart on the page.
+const SLOT_ORDER = [3, 1, 2, 0];
+function enginePalette(
+  src: ReportData["totals"]["bySource"],
+  c: ReturnType<typeof resolveTheme>
+): Record<Source, string> {
+  const ranked = [...SOURCES].sort((a, b) => (src[b] ?? 0) - (src[a] ?? 0));
+  const out = {} as Record<Source, string>;
+  ranked.forEach((key, i) => (out[key] = c.scale[SLOT_ORDER[i] ?? 0]));
+  return out;
 }
 
 export interface ReportOptions {
@@ -98,7 +123,7 @@ function build(){
   setText('s-md','![my coding heatmap]('+svg+')');
   setText('s-pic','<div align="center">\\n  <picture>\\n    <source media="(prefers-color-scheme: dark)" srcset="'+U+dark+rest+'" />\\n    <source media="(prefers-color-scheme: light)" srcset="'+U+light+rest+'" />\\n    <img src="'+U+dark+rest+'" alt="coding heatmap" />\\n  </picture>\\n</div>');
   setText('s-url',report);
-  $('tweet').href='https://twitter.com/intent/tweet?text='+encodeURIComponent('My Claude + Codex coding heatmap')+'&url='+encodeURIComponent(report);
+  $('tweet').href='https://twitter.com/intent/tweet?text='+encodeURIComponent('My Claude + Codex + Grok coding heatmap')+'&url='+encodeURIComponent(report);
 }
 function copy(id,btn){navigator.clipboard.writeText($(id).textContent).then(function(){var o=btn.textContent;btn.textContent='✓ copied';setTimeout(function(){btn.textContent=o},1200)})}
 build();
@@ -168,29 +193,40 @@ function shareCard(base: string, user: string): string {
   </div></details>`;
 }
 
-// Stacked SVG bar chart of the last `n` days — Codex on the bottom, Claude on top.
-function dailyChart(days: ReportData["days"], n: number, c: ReturnType<typeof resolveTheme>): string {
+// Stacked SVG bar chart of the last `n` days, one band per engine.
+function dailyChart(
+  days: ReportData["days"],
+  n: number,
+  c: ReturnType<typeof resolveTheme>,
+  palette: Record<Source, string>
+): string {
   const tail = days.slice(-n);
-  const max = Math.max(1, ...tail.map((d) => d.claude + d.codex));
+  const used = ENGINES.filter((e) => tail.some((d) => (d[e.key] ?? 0) > 0));
+  const stack = used.length ? used : [ENGINES[0]];
+  const max = Math.max(1, ...tail.map((d) => stack.reduce((sum, e) => sum + (d[e.key] ?? 0), 0)));
   const W = 760, H = 160, pad = 8, plot = H - 12;
   const bw = (W - pad * 2) / Math.max(1, tail.length);
-  const cClaude = c.scale[3], cCodex = c.scale[1];
   const bars = tail
     .map((d, i) => {
       const x = pad + i * bw;
       const w = (bw - 2).toFixed(1);
-      const hCo = (d.codex / max) * plot;
-      const hCl = (d.claude / max) * plot;
-      const yCo = H - 4 - hCo;
-      const yCl = yCo - hCl;
-      const title = `<title>${d.date}: ${fmt(d.tokens)} tok · $${d.cost.toFixed(2)}  (claude ${fmt(d.claude)} · codex ${fmt(d.codex)})</title>`;
+      const mix = stack.map((e) => `${e.key} ${fmt(d[e.key] ?? 0)}`).join(" · ");
+      const title = `<title>${d.date}: ${fmt(d.tokens)} tok · $${d.cost.toFixed(2)}  (${mix})</title>`;
+      let y = H - 4;
       let r = "";
-      if (hCo > 0.3) r += `<rect class="bar" x="${x.toFixed(1)}" y="${yCo.toFixed(1)}" width="${w}" height="${hCo.toFixed(1)}" rx="1.5" fill="${cCodex}">${title}</rect>`;
-      if (hCl > 0.3) r += `<rect class="bar" x="${x.toFixed(1)}" y="${yCl.toFixed(1)}" width="${w}" height="${hCl.toFixed(1)}" rx="1.5" fill="${cClaude}">${title}</rect>`;
+      // bottom-up, so the first engine in ENGINES caps the bar
+      for (const e of [...stack].reverse()) {
+        const h = ((d[e.key] ?? 0) / max) * plot;
+        if (h <= 0.3) continue;
+        y -= h;
+        r += `<rect class="bar" x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${w}" height="${h.toFixed(1)}" rx="1.5" fill="${palette[e.key]}">${title}</rect>`;
+      }
       return r;
     })
     .join("");
-  const legend = `<div class="legend"><span><i style="background:${cClaude}"></i>Claude</span><span><i style="background:${cCodex}"></i>Codex</span></div>`;
+  const legend = `<div class="legend">${stack
+    .map((e) => `<span><i style="background:${palette[e.key]}"></i>${e.label}</span>`)
+    .join("")}</div>`;
   return `<svg viewBox="0 0 ${W} ${H}" width="100%" preserveAspectRatio="none" style="display:block">${bars}</svg>${legend}`;
 }
 
@@ -223,6 +259,22 @@ function weekTrend(days: ReportData["days"]): number | null {
 }
 
 // Donut chart for a small set of proportions. parts: [label, value, color].
+// Only chart engines the user actually ran — an always-present 0% slice reads
+// as a broken chart rather than an unused tool.
+function engineParts(
+  src: ReportData["totals"]["bySource"],
+  palette: Record<Source, string>
+): [string, number, string][] {
+  const used = ENGINES.filter((e) => (src[e.key] ?? 0) > 0);
+  const shown = used.length ? used : [ENGINES[0]];
+  return shown.map((e) => [e.label, src[e.key] ?? 0, palette[e.key]]);
+}
+
+function engineSplitLabel(src: ReportData["totals"]["bySource"]): string {
+  const used = ENGINES.filter((e) => (src[e.key] ?? 0) > 0).map((e) => e.label);
+  return used.length > 1 ? used.join(" vs ") : "Engine split";
+}
+
 function donut(parts: [string, number, string][], c: ReturnType<typeof resolveTheme>): string {
   const total = parts.reduce((s, p) => s + p[1], 0) || 1;
   const D = 200, cx = D / 2, cy = D / 2, r = 78, sw = 30, C = 2 * Math.PI * r;
@@ -396,7 +448,7 @@ function rankCard(tokens: number, c: ReturnType<typeof resolveTheme>): string {
     <div class="rk-body">
       <div class="rk-lv">RANK ${idx + 1} / ${TIERS.length} · by total tokens</div>
       <div class="rk-title">${esc(tier.title)}</div>
-      <div class="rk-sub">${fmt(tokens)} tokens consumed across Claude + Codex</div>
+      <div class="rk-sub">${fmt(tokens)} tokens consumed across Claude, Codex &amp; Grok</div>
       ${progLine}
     </div>
   </div>${ladder}`;
@@ -464,7 +516,7 @@ export function renderSocialCard(d: ReportData, opts: ReportOptions = {}): strin
   <g shape-rendering="crispEdges">${mascot}</g>
   <text x="${tx}" y="104" font-size="26" font-weight="700" fill="${c.scale[2]}">cc<tspan fill="${c.sub}">▪</tspan>map<tspan fill="${c.sub}" font-weight="400">  ·  RANK ${idx + 1} / ${TIERS.length}</tspan></text>
   <text x="${tx}" y="${104 + titleSize + 6}" font-size="${titleSize}" font-weight="700" fill="${c.text}">${esc(tier.title)}</text>
-  <text x="${tx}" y="${104 + titleSize + 52}" font-size="30" fill="${c.sub}">@${esc(user)} · Claude + Codex heatmap</text>
+  <text x="${tx}" y="${104 + titleSize + 52}" font-size="30" fill="${c.sub}">@${esc(user)} · Claude · Codex · Grok heatmap</text>
   <text x="${tx}" y="328" font-size="44" font-weight="700" fill="${c.scale[2]}">${fmt(d.totals.tokens)} tokens<tspan font-size="26" font-weight="400" fill="${c.sub}">  · ${goal}</tspan></text>
   <text x="${tx}" y="366" font-size="28" fill="${c.sub}">${sub}</text>
   <g>${grid}</g>
@@ -542,7 +594,7 @@ export function renderPortraitCard(d: ReportData, opts: ReportOptions = {}): str
   <g shape-rendering="crispEdges">${mascot}</g>
   <text x="${cx}" y="438" text-anchor="middle" font-size="23" font-weight="600" fill="${c.sub}" letter-spacing="2">RANK ${idx + 1} / ${TIERS.length} · BY TOTAL TOKENS</text>
   <text x="${cx}" y="${438 + titleSize + 8}" text-anchor="middle" font-size="${titleSize}" font-weight="700" fill="${c.text}">${esc(tier.title)}</text>
-  <text x="${cx}" y="${438 + titleSize + 52}" text-anchor="middle" font-size="25" fill="${c.sub}">@${esc(user)} · Claude + Codex heatmap</text>
+  <text x="${cx}" y="${438 + titleSize + 52}" text-anchor="middle" font-size="25" fill="${c.sub}">@${esc(user)} · Claude · Codex · Grok heatmap</text>
   <text x="${cx}" y="640" text-anchor="middle" font-size="50" font-weight="700" fill="${c.scale[2]}">${fmt(d.totals.tokens)} tokens</text>
   <text x="${cx}" y="680" text-anchor="middle" font-size="25" fill="${c.sub}">${sub}</text>
   <g>${grid}</g>
@@ -578,13 +630,21 @@ export function renderReport(d: ReportData, opts: ReportOptions = {}): string {
   // heatmap reuses the badge renderer (full year, cascade flourish)
   const daysMap = new Map<string, any>();
   for (const x of d.days)
-    daysMap.set(x.date, { date: x.date, tokens: x.tokens, cost: x.cost, bySource: { claude: x.claude, codex: x.codex }, byModel: {}, sessions: new Set() });
+    daysMap.set(x.date, {
+      date: x.date,
+      tokens: x.tokens,
+      cost: x.cost,
+      bySource: Object.fromEntries(ENGINES.map((e) => [e.key, x[e.key] ?? 0])),
+      byModel: {},
+      sessions: new Set(),
+    });
   const heat = renderSVG(daysMap, { totalTokens: d.totals.tokens, totalCost: d.totals.cost, streak: d.totals.streak }, { theme: opts.theme ?? "claude", weeks: 53, anim: "cascade", border: false, title: "" })
     // inline at fixed px → overflows narrow screens; let it scale to the card width
     .replace("<svg ", `<svg style="max-width:100%;height:auto" `);
 
   const topModels = Object.entries(d.byModel).sort((a, b) => b[1] - a[1]).slice(0, 8);
   const src = d.totals.bySource;
+  const palette = enginePalette(src, c);
   const badge = opts.origin ? `${opts.origin}/u/${user}.svg` : "";
 
   const longest = longestStreak(d.days);
@@ -612,7 +672,7 @@ export function renderReport(d: ReportData, opts: ReportOptions = {}): string {
   ogQ.push(`v=${encodeURIComponent(opts.cacheBust || CARD_REV)}`);
   const ogImg = opts.origin ? `${opts.origin}/u/${user}.png?${ogQ.join("&")}` : "";
   const ogTitle = `${emo} ${esc(user)} — ${esc(tier.title)} on ccmap`;
-  const ogDesc = `🔥 ${fmt(d.totals.tokens)} tokens · 💰 $${Math.round(d.totals.cost).toLocaleString()} · 🗓️ ${d.totals.streak}-day streak across Claude + Codex 🤖  👀 See your own coding heatmap → npm i -g @tao-hpu/ccmap`;
+  const ogDesc = `🔥 ${fmt(d.totals.tokens)} tokens · 💰 $${Math.round(d.totals.cost).toLocaleString()} · 🗓️ ${d.totals.streak}-day streak across Claude, Codex &amp; Grok 🤖  👀 See your own coding heatmap → npm i -g @tao-hpu/ccmap`;
   const ogTags = !opts.origin
     ? ""
     : `<meta property="og:type" content="website">
@@ -765,7 +825,7 @@ ${ogTags}
   }
 </style></head><body><div class="wrap">
   <div class="head"><span class="brand-mark">cc<span class="brand-dot">▪</span>map</span><h1>${esc(user)} <span class="muted">· coding report</span></h1></div>
-  <div class="muted">Claude + Codex coding heatmap · ${range}</div>
+  <div class="muted">Claude · Codex · Grok coding heatmap · ${range}</div>
 
   ${rankCard(d.totals.tokens, c)}
 
@@ -786,17 +846,14 @@ ${ogTags}
 
   <div class="card"><h2>Activity</h2>${heat}</div>
 
-  <div class="card"><h2>Daily volume · last 30 days</h2>${dailyChart(d.days, 30, c)}</div>
+  <div class="card"><h2>Daily volume · last 30 days</h2>${dailyChart(d.days, 30, c, palette)}</div>
 
   <div class="card"><h2>Cumulative growth</h2>${cumulativeArea(d.days, c)}</div>
 
   <div class="card"><h2>Rhythm &amp; engine split</h2>
     <div class="split">
       <div class="half"><div class="sub-h">When you code · by weekday</div>${radarWeekday(d.days, c)}</div>
-      <div class="half"><div class="sub-h">Claude vs Codex</div>${donut(
-        [["Claude", src.claude, c.scale[3]], ["Codex", src.codex, c.scale[1]]],
-        c
-      )}</div>
+      <div class="half"><div class="sub-h">${engineSplitLabel(src)}</div>${donut(engineParts(src, palette), c)}</div>
     </div>
   </div>
 
@@ -806,7 +863,7 @@ ${ogTags}
 
   ${opts.share ? `<div class="cta">
     <div class="cta-h">Want your own?${IC_ROCKET}</div>
-    <div class="cta-sub">A GitHub-style heatmap of your Claude Code + Codex usage — free, 100% local, set up in 30 seconds.</div>
+    <div class="cta-sub">A GitHub-style heatmap of your Claude Code, Codex &amp; Grok usage — free, 100% local, set up in 30 seconds.</div>
     <div class="cta-row">
       <a class="cta-btn" href="${GITHUB}" target="_blank" rel="noopener">${IC_GITHUB}Get it on GitHub</a>
       <div class="cta-copy"><code id="cta-cmd">npm i -g @tao-hpu/ccmap</code><button onclick="copy('cta-cmd',this)">copy</button></div>
