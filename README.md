@@ -35,7 +35,7 @@ Don't want to install? `npx @tao-hpu/ccmap@latest scan` runs it once, always lat
 | --- | --- |
 | `ccmap scan` | Summarize local usage (tokens, est. cost, streak, model mix) + terminal heatmap. |
 | `ccmap render [--out f.svg] [--theme …] [--anim ember\|wave\|cascade] [--metric tokens\|cost] [--weeks 26] [--border] [--rounded]` | Render a heatmap SVG locally. |
-| `ccmap report [--out f.html]` | Render a full shareable HTML report (with a live customizer). |
+| `ccmap report [--out f.html] [--theme …]` | Render a full shareable HTML report (with a live customizer). |
 
 **Publish & keep fresh** (uses the public badge service at `https://ccmap.fim.ai` — zero config):
 
@@ -144,14 +144,42 @@ Grab the badge SVG from there, or embed it directly (GitHub renders SVG natively
 
 | param | values | default |
 | --- | --- | --- |
-| `theme` | `claude` `github-dark` `github-light` `tokyo-night` `dracula` `nord` (`dark`/`light` aliases) | `claude` |
+| `theme` | `claude` `claude-light` `codex-dark` `codex-light` `github-dark` `github-light` `tokyo-night` `dracula` `nord` (`dark`/`light` aliases) | `claude` |
 | `metric` | `tokens` `cost` | `tokens` |
 | `weeks` | `1..53` | `26` |
-| `border` | `true` `false` | `false` |
-| `rounded` | `true` `false` | `false` |
+| `border` | `true` `false` | `false` on Node; ignored by Worker |
+| `rounded` | `true` `false` | `false` on Node; ignored by Worker |
+| `hide_border` | `true` disables the Worker border | `false` |
 
 Add themes by editing the `THEMES` registry in `src/render.ts` — each is just a
 palette, instantly available as `?theme=<name>`.
+
+Badge options retain their existing backend-specific behavior. Node badges are
+borderless and square by default; exact `border=true` and `rounded=true` opt in.
+Worker badges are bordered and square by default, and `hide_border=true` removes
+the border; Worker continues to ignore `border` and `rounded`. The report
+customizer appends `border=true` or `rounded=true` only while the corresponding
+checkbox is checked.
+
+### Theme-aware surfaces
+
+| Surface | How to select a Codex theme |
+| --- | --- |
+| Terminal heatmap | `ccmap config --theme codex-dark`, then `ccmap scan` |
+| Local SVG | `ccmap render --theme codex-light --out heatmap.svg` |
+| Local HTML | `ccmap report --theme codex-dark --out report.html` |
+| Node/Worker SVG badge | `/u/alice.svg?theme=codex-dark` |
+| Node/Worker HTML aliases | `/u/alice?theme=codex-light` or `/u/alice.html?theme=codex-light` |
+| Node social PNG | `/u/alice.png?theme=codex-dark` |
+| Node portrait PNG | `/u/alice.png?shape=portrait&theme=codex-light` |
+| Node badge PNG | `/u/alice.png?card=badge&theme=codex-dark` |
+| Report preview and embeds | Select either Codex variant in **Customize & share** |
+
+Direct light-theme badge:
+
+```md
+![my coding heatmap](https://ccmap.fim.ai/u/alice.svg?theme=codex-light)
+```
 
 ### Auto light/dark (follow the viewer's GitHub theme)
 

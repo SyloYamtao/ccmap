@@ -4,6 +4,24 @@ All notable changes to **ccmap** are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/), and versions track the npm
 package version (each release is tagged `vX.Y.Z` in git).
 
+## [Unreleased]
+
+### Added
+
+- Added `codex-dark` and `codex-light` across terminal output, local SVG and
+  HTML, Node and Worker hosted reports/badges, Node social/portrait/badge cards,
+  saved configuration, help, and the report selector.
+- Adaptive README embeds selected from either Codex variant now pair
+  `codex-dark` with `codex-light`.
+
+### Fixed
+
+- Node PNG routes now preserve the selected theme when an unavailable optional
+  rasterizer redirects to the SVG badge.
+
+These changes do not affect push payloads, authentication fields, stored usage records,
+source-log access, dependency, or privacy boundary.
+
 ## [0.2.0] — 2026-08-21
 
 ### Added

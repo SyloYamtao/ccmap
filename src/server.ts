@@ -274,7 +274,9 @@ async function handlePng(req: IncomingMessage, user: string, url: URL, res: Serv
     res.end(png);
   } catch {
     // resvg unavailable → degrade to the SVG so the route never hard-fails
-    res.writeHead(302, { location: `/u/${encodeURIComponent(user)}.svg` });
+    res.writeHead(302, {
+      location: `/u/${encodeURIComponent(user)}.svg?theme=${encodeURIComponent(theme)}`,
+    });
     res.end();
   }
 }

@@ -633,16 +633,20 @@ function argVal(args: string[], flag: string): string | undefined {
   return undefined;
 }
 
+const THEME_HELP =
+  "claude|claude-light|codex-dark|codex-light|github-dark|github-light|tokyo-night|dracula|nord";
+
 function help() {
   console.log(`ccmap ${VERSION} — coding heatmap for Claude Code + Codex + Grok
 
 Usage:
   ccmap scan                       Summarize local usage (no upload)
   ccmap render [--out f.svg]       Render a heatmap SVG locally
-                [--metric tokens|cost] [--weeks 26] [--border] [--rounded]
-                [--theme claude|github-dark|github-light|tokyo-night|dracula|nord]
+                [--metric tokens|cost] [--weeks 26] [--border] [--rounded] (both opt-in)
+                [--theme ${THEME_HELP}]
                 [--anim none|ember|wave|cascade]
-  ccmap report [--out f.html]      Render a full shareable HTML report locally
+  ccmap report [--out f.html] [--theme ${THEME_HELP}]
+                                   Render a full shareable HTML report locally
   ccmap login --user <name> --endpoint <url> [--invite <code>]
                                    Claim a specific username (optional — push auto-claims).
   ccmap push [--user <name>]       Push aggregates. First run picks a username
@@ -651,7 +655,8 @@ Usage:
                                    no terminal needed). --foreground runs an attached loop.
   ccmap stop                       Remove the scheduled job
   ccmap status                     Show schedule + last push
-  ccmap config [--interval <min>] [--metric tokens|cost] [--theme dark|light]
+  ccmap config [--interval <min>] [--metric tokens|cost]
+               [--theme ${THEME_HELP}]
                                    (--interval is minutes between scheduled pushes; default 1440 = daily)
   ccmap update                     Self-update to the latest published version
   ccmap version
