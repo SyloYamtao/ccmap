@@ -88,7 +88,17 @@ function rgbOf(hex: string): string {
 }
 
 const GITHUB = "https://github.com/tao-hpu/ccmap";
-const THEME_NAMES = ["claude", "claude-light", "github-dark", "github-light", "tokyo-night", "dracula", "nord"];
+const THEME_NAMES = [
+  "claude",
+  "claude-light",
+  "codex-dark",
+  "codex-light",
+  "github-dark",
+  "github-light",
+  "tokyo-night",
+  "dracula",
+  "nord",
+];
 
 // Inline SVG icons (replace emoji so they render crisply & consistently everywhere).
 const IC_BOLT = `<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></svg>`;
@@ -118,8 +128,9 @@ function build(){
   if($('cb-note'))$('cb-note').textContent='?v='+cb;
   if($('dl'))$('dl').href=BASE+'/u/'+USER+'.png?shape=portrait'+(t!=='claude'?'&theme='+t:'')+'&weeks='+w+'&v='+cb;
   $('preview').src=svg;
-  var dark=(t==='claude-light')?'claude':t;
-  var light=(t==='claude'||t==='claude-light')?'claude-light':'github-light';
+  var codex=(t==='codex-dark'||t==='codex-light');
+  var dark=codex?'codex-dark':((t==='claude-light')?'claude':t);
+  var light=codex?'codex-light':((t==='claude'||t==='claude-light')?'claude-light':'github-light');
   setText('s-md','![my coding heatmap]('+svg+')');
   setText('s-pic','<div align="center">\\n  <picture>\\n    <source media="(prefers-color-scheme: dark)" srcset="'+U+dark+rest+'" />\\n    <source media="(prefers-color-scheme: light)" srcset="'+U+light+rest+'" />\\n    <img src="'+U+dark+rest+'" alt="coding heatmap" />\\n  </picture>\\n</div>');
   setText('s-url',report);

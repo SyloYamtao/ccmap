@@ -44,6 +44,14 @@ export const THEMES: Record<string, Theme> = {
     bg: "#ffffff", text: "#24292f", sub: "#57606a", empty: "#ebedf0",
     scale: ["#9be9a8", "#40c463", "#30a14e", "#216e39"], border: "#d0d7de",
   },
+  "codex-light": {
+    bg: "#FFFFFF", text: "#191C1F", sub: "#8E8F90", empty: "#F4F4F4",
+    scale: ["#D2DDF3", "#A9C0E7", "#7398D9", "#2C67C5"], border: "#D9DEE5",
+  },
+  "codex-dark": {
+    bg: "#191C1F", text: "#F4F4F4", sub: "#A0A4A8", empty: "#292E33",
+    scale: ["#23416D", "#265494", "#2C67C5", "#7398D9"], border: "#3B424A",
+  },
   "tokyo-night": {
     bg: "#1a1b27", text: "#c0caf5", sub: "#a9b1d6", empty: "#23243a",
     scale: ["#0f3d4a", "#1f6f7a", "#2db3a3", "#41dcc4"], border: "#2a2e45",

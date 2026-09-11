@@ -1,8 +1,30 @@
 node_modules/
 dist/
+build/
+coverage/
 *.svg
 *.png
+*.log
+*.tmp
+*.swp
 .DS_Store
+Thumbs.db
+.vscode/
+.idea/
+/.agents/
+/.specify/
+/specs/
+
+# local package-manager and release helper files
+/.npmignore
+/pnpm-workspace.yaml
+
+# generated local reports and Worker output
+/ccmap-report.html
+/codex-report.html
+/server/.out/
+/server/.wrangler/
+
 # secrets — never commit
-.env
+.env*
 .npmrc
