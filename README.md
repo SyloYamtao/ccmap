@@ -225,3 +225,19 @@ No accounts: your first push mints a local secret and the server stores only its
 - ⏳ PNG route (`/u/:user.png`): SVG covers GitHub/Notion/Slack. PNG (for X/Twitter)
   is one dep away — add `@resvg/resvg-wasm` and a `.png` route.
 - 💡 Ideas backlog: leaderboard, "AI Wrapped" recap card, model fingerprint, streak-only mini badge.
+
+## Contributors
+
+Code that shipped, in order of first contribution.
+
+<table>
+  <tr>
+    <td align="center" width="140">
+      <a href="https://github.com/SyloYamtao">
+        <img src="https://github.com/SyloYamtao.png?size=160" width="80" height="80" alt="SyloYamtao" /><br />
+        <sub><b>SyloYamtao</b></sub>
+      </a><br />
+      <sub>Codex light / dark themes<br /><a href="https://github.com/tao-hpu/ccmap/pull/1">#1</a></sub>
+    </td>
+  </tr>
+</table>
