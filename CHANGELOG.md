@@ -6,6 +6,11 @@ package version (each release is tagged `vX.Y.Z` in git).
 
 ## [Unreleased]
 
+### Changed
+
+- Updated built-in Codex model prices, including separate cache-read and
+  cache-write rates for GPT-5.6 models.
+
 ### Added
 
 - Added `codex-dark` and `codex-light` across terminal output, local SVG and
