@@ -175,7 +175,7 @@ Grab the badge SVG from there, or embed it directly (GitHub renders SVG natively
 
 | param | values | default |
 | --- | --- | --- |
-| `theme` | `claude` `claude-light` `codex-dark` `codex-light` `github-dark` `github-light` `tokyo-night` `dracula` `nord` (`dark`/`light` aliases) | `claude` |
+| `theme` | `claude` `claude-light` `codex` `codex-dark` `codex-light` `github-dark` `github-light` `tokyo-night` `dracula` `nord` (`codex` selects `codex-light`; `dark`/`light` are aliases) | `claude` |
 | `metric` | `tokens` `cost` | `tokens` |
 | `weeks` | `1..53` | `26` |
 | `border` | `true` `false` | `false` on Node; ignored by Worker |
