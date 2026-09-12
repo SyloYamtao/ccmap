@@ -13,6 +13,8 @@ package version (each release is tagged `vX.Y.Z` in git).
 
 ### Added
 
+- Added `codex` as a theme shorthand across the CLI, hosted reports, badge
+  URLs, and adaptive embeds; it resolves to `codex-light` for direct renders.
 - Added `codex-dark` and `codex-light` across terminal output, local SVG and
   HTML, Node and Worker hosted reports/badges, Node social/portrait/badge cards,
   saved configuration, help, and the report selector.
@@ -21,6 +23,10 @@ package version (each release is tagged `vX.Y.Z` in git).
 
 ### Fixed
 
+- User pricing overrides now take precedence over more specific built-in model
+  keys, preserving broad rules such as a custom `gpt-5` price.
+- API-only GPT-5 variants no longer inherit a similarly named Codex price when
+  no custom pricing rule is configured.
 - Node PNG routes now preserve the selected theme when an unavailable optional
   rasterizer redirects to the SVG badge.
 

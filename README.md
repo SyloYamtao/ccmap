@@ -204,7 +204,7 @@ checkbox is checked.
 | Node social PNG | `/u/alice.png?theme=codex-dark` |
 | Node portrait PNG | `/u/alice.png?shape=portrait&theme=codex-light` |
 | Node badge PNG | `/u/alice.png?card=badge&theme=codex-dark` |
-| Report preview and embeds | Select either Codex variant in **Customize & share** |
+| Report preview and embeds | Select `codex` or either explicit Codex variant in **Customize & share** |
 
 ### Auto light/dark (follow the viewer's GitHub theme)
 

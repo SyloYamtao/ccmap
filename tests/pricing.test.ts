@@ -50,14 +50,28 @@ test("uses gpt-5 pricing as the fallback for unknown GPT-5 variants", () => {
   assert.deepEqual(priceFor("gpt-5-experimental"), priceFor("gpt-5"));
 });
 
-test("does not include API-only OpenAI models", () => {
-  assert.deepEqual(priceFor("gpt-4o"), {
+test("does not inherit built-in prices for API-only OpenAI models", () => {
+  const fallback = {
     in: 3,
     out: 15,
     cw: 3.75,
     cr: 0.3,
     cw1h: 6,
-  });
+  };
+  for (const model of [
+    "gpt-4o",
+    "gpt-5-pro",
+    "gpt-5-mini",
+    "gpt-5.2-pro",
+    "gpt-5.4-pro",
+    "gpt-5.4-nano",
+    "gpt-5.5-pro",
+    "gpt-5.5-cyber",
+    "gpt-5.6-cyber",
+    "gpt-5-search-api",
+  ]) {
+    assert.deepEqual(priceFor(model), fallback, model);
+  }
 });
 
 test("calculates input, output, and cached input costs", () => {
@@ -73,6 +87,8 @@ test("calculates input, output, and cached input costs", () => {
 test("config pricing overrides take precedence over built-in prices", () => {
   const override: Price = { in: 9, out: 8, cw: 7, cr: 6, cw1h: 5 };
   assert.deepEqual(priceFor("gpt-5.3-codex", { "gpt-5.3-codex": override }), override);
+  assert.deepEqual(priceFor("gpt-5.3-codex", { "gpt-5": override }), override);
+  assert.deepEqual(priceFor("gpt-5.4-pro", { "gpt-5.4-pro": override }), override);
   assert.equal(
     costOf(
       "gpt-5.3-codex",

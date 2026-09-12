@@ -46,19 +46,40 @@ const TABLE: Record<string, Price> = {
 
 const FALLBACK: Price = { in: 3, out: 15, cw: 3.75, cr: 0.3, cw1h: 6 };
 
-export function priceFor(model: string, overrides?: Record<string, Price>): Price {
-  const m = (model || "").toLowerCase();
-  const tbl = { ...TABLE, ...(overrides || {}) };
-  // longest-key match wins
+// These API-only models share a prefix with a supported Codex model. Keep them
+// on the generic fallback unless the user supplies an explicit pricing rule.
+const OPENAI_MODEL_EXCLUSIONS = [
+  "gpt-5.6-cyber",
+  "gpt-5.5-cyber",
+  "gpt-5.5-pro",
+  "gpt-5.4-nano",
+  "gpt-5.4-pro",
+  "gpt-5.2-pro",
+  "gpt-5-search-api",
+  "gpt-5-mini",
+  "gpt-5-nano",
+  "gpt-5-pro",
+];
+
+function longestMatch(model: string, prices: Record<string, Price>): Price | null {
   let best: Price | null = null;
   let bestLen = -1;
-  for (const [key, price] of Object.entries(tbl)) {
-    if (m.includes(key) && key.length > bestLen) {
+  for (const [rawKey, price] of Object.entries(prices)) {
+    const key = rawKey.toLowerCase();
+    if (model.includes(key) && key.length > bestLen) {
       best = price;
       bestLen = key.length;
     }
   }
-  return best ?? FALLBACK;
+  return best;
+}
+
+export function priceFor(model: string, overrides?: Record<string, Price>): Price {
+  const m = (model || "").toLowerCase();
+  const override = longestMatch(m, overrides || {});
+  if (override) return override;
+  if (OPENAI_MODEL_EXCLUSIONS.some((key) => m.includes(key))) return FALLBACK;
+  return longestMatch(m, TABLE) ?? FALLBACK;
 }
 
 export interface TokenBreakdown {
