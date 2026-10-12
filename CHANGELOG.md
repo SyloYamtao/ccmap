@@ -6,6 +6,19 @@ package version (each release is tagged `vX.Y.Z` in git).
 
 ## [Unreleased]
 
+## [0.4.2] — 2026-10-12
+
+### Changed
+
+- Prices checked against the official pages on 2026-10-12.
+- Claude Sonnet 5.5: cache read $0.20 → $0.10 (it previously took the Sonnet 5
+  rate). Input, output and cache-write prices are unchanged.
+- Claude Haiku 5.5: input $1 → $0.10, output $5 → $0.50, 5m cache write
+  $1.25 → $0.125, 1h cache write $2 → $0.20, cache read $0.10 → $0.01 (it
+  previously took the Haiku 4.5 rate). These are the rates for prompts up to
+  100K tokens; the higher rate for longer prompts is not applied.
+- OpenAI/Codex, Grok and DeepSeek prices are unchanged.
+
 ## [0.4.1] — 2026-10-06
 
 ### Changed

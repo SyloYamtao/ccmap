@@ -133,11 +133,12 @@ test("prices each Claude version at its own list rate", () => {
     "claude-opus-4-1-20250805": [15, 75, 18.75, 1.5, 30],
     "claude-opus-4-0": [15, 75, 18.75, 1.5, 30],
     "claude-opus-4-20250514": [15, 75, 18.75, 1.5, 30],
-    "claude-sonnet-5-5": [2, 10, 2.5, 0.2, 4],
+    "claude-sonnet-5-5": [2, 10, 2.5, 0.1, 4],
     "claude-sonnet-5": [2, 10, 2.5, 0.2, 4],
     "claude-sonnet-4-6": [3, 15, 3.75, 0.3, 6],
     "claude-sonnet-4-5-20250929": [3, 15, 3.75, 0.3, 6],
     "claude-sonnet-4-20250514": [3, 15, 3.75, 0.3, 6],
+    "claude-haiku-5-5": [0.1, 0.5, 0.125, 0.01, 0.2],
     "claude-haiku-4-5-20251001": [1, 5, 1.25, 0.1, 2],
     "claude-3-5-haiku-20241022": [0.8, 4, 1, 0.08, 1.6],
   };
@@ -149,6 +150,7 @@ test("prices each Claude version at its own list rate", () => {
 test("prices unknown Claude versions at the newest rate of their family", () => {
   assert.deepEqual(priceFor("claude-opus-6"), priceFor("claude-opus-5-5"));
   assert.deepEqual(priceFor("claude-sonnet-6"), priceFor("claude-sonnet-5-5"));
+  assert.deepEqual(priceFor("claude-haiku-6"), priceFor("claude-haiku-5-5"));
   assert.deepEqual(priceFor("claude-fable-6"), priceFor("claude-fable-5-1"));
 });
 

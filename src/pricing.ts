@@ -10,8 +10,10 @@ export interface Price {
 }
 
 // Claude list prices: https://platform.claude.com/docs/en/about-claude/pricing
-// (checked 2026-10-06). cw = 1.25x in, cw1h = 2x in; cr = 0.1x in except
-// Fable/Mythos 5.1 (0.025x) and Opus 5.5 (0.05x).
+// (checked 2026-10-12). cw = 1.25x in, cw1h = 2x in; cr = 0.1x in except
+// Fable/Mythos 5.1 (0.025x) and Opus 5.5 / Sonnet 5.5 (0.05x). Haiku 5.5 uses
+// the rate for prompts up to 100K tokens; prompts above it cost 5x and are not
+// applied.
 const FABLE_5: Price = { in: 10, out: 50, cw: 12.5, cr: 1, cw1h: 20 };
 const FABLE_5_1: Price = { in: 10, out: 50, cw: 12.5, cr: 0.25, cw1h: 20 };
 const OPUS_4: Price = { in: 15, out: 75, cw: 18.75, cr: 1.5, cw1h: 30 };
@@ -19,8 +21,10 @@ const OPUS_4_5: Price = { in: 5, out: 25, cw: 6.25, cr: 0.5, cw1h: 10 };
 const OPUS_5_5: Price = { in: 4, out: 20, cw: 5, cr: 0.2, cw1h: 8 };
 const SONNET_4: Price = { in: 3, out: 15, cw: 3.75, cr: 0.3, cw1h: 6 };
 const SONNET_5: Price = { in: 2, out: 10, cw: 2.5, cr: 0.2, cw1h: 4 };
+const SONNET_5_5: Price = { in: 2, out: 10, cw: 2.5, cr: 0.1, cw1h: 4 };
 const HAIKU_3_5: Price = { in: 0.8, out: 4, cw: 1, cr: 0.08, cw1h: 1.6 };
 const HAIKU_4_5: Price = { in: 1, out: 5, cw: 1.25, cr: 0.1, cw1h: 2 };
+const HAIKU_5_5: Price = { in: 0.1, out: 0.5, cw: 0.125, cr: 0.01, cw1h: 0.2 };
 
 // Each family lists the versions where its price changed, oldest first. A model
 // takes the entry with the highest version at or below its own, so Opus 4.1
@@ -34,8 +38,8 @@ const CLAUDE: Record<string, [version: number, price: Price][]> = {
   fable: FABLE_STEPS,
   mythos: FABLE_STEPS, // same tier and prices as Fable
   opus: [[400, OPUS_4], [405, OPUS_4_5], [505, OPUS_5_5]],
-  sonnet: [[400, SONNET_4], [500, SONNET_5]],
-  haiku: [[305, HAIKU_3_5], [405, HAIKU_4_5]],
+  sonnet: [[400, SONNET_4], [500, SONNET_5], [505, SONNET_5_5]],
+  haiku: [[305, HAIKU_3_5], [405, HAIKU_4_5], [505, HAIKU_5_5]],
 };
 
 // Accepts claude-opus-4-1-20250805, claude-opus-4@20250514, claude-opus-4.6,
@@ -69,7 +73,7 @@ function claudePrice(model: string): Price | null | undefined {
 const TABLE: Record<string, Price> = {
   // Official Codex CLI models, including historical GPT-5 variants still
   // present in local logs. Prices are Standard short-context API rates per 1M
-  // tokens: https://developers.openai.com/api/docs/pricing (checked 2026-10-06)
+  // tokens: https://developers.openai.com/api/docs/pricing (checked 2026-10-12)
   // GPT-5.3/5.2 Codex rates: https://developers.openai.com/api/docs/models/gpt-5.3-codex
   // and https://developers.openai.com/api/docs/models/gpt-5.2-codex
   // Codex does not report separate cache-write TTL tiers, so cw1h matches cw.
@@ -94,7 +98,7 @@ const TABLE: Record<string, Price> = {
   // per turn and we use that when present, so these only cover turns that
   // logged tokens without a cost (interrupted turns, older CLI builds).
   // Rates under 200K prompt tokens from https://docs.x.ai/developers/models
-  // (checked 2026-10-06). xAI lists no cache-write price, so cw = in.
+  // (checked 2026-10-12). xAI lists no cache-write price, so cw = in.
   "grok-4.7": { in: 2, out: 6, cw: 2, cr: 0.5, cw1h: 2 },
   "grok-4.6": { in: 2, out: 6, cw: 2, cr: 0.5, cw1h: 2 },
   "grok-4.5": { in: 2, out: 6, cw: 2, cr: 0.3, cw1h: 2 },

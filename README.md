@@ -124,7 +124,7 @@ separately.
 
 Built-in Claude rates, checked against
 [Claude API pricing](https://platform.claude.com/docs/en/about-claude/pricing)
-on 2026-10-06 (USD per 1M tokens):
+on 2026-10-12 (USD per 1M tokens):
 
 | Model | Input | Cache read | 5m / 1h cache write | Output |
 | --- | ---: | ---: | ---: | ---: |
@@ -133,21 +133,25 @@ on 2026-10-06 (USD per 1M tokens):
 | `claude-opus-5-5` | $4.00 | $0.20 | $5.00 / $8.00 | $20.00 |
 | `claude-opus-5`, `claude-opus-4-5` – `4-8` | $5.00 | $0.50 | $6.25 / $10.00 | $25.00 |
 | `claude-opus-4-1`, `claude-opus-4` | $15.00 | $1.50 | $18.75 / $30.00 | $75.00 |
-| `claude-sonnet-5-5` / `claude-sonnet-5` | $2.00 | $0.20 | $2.50 / $4.00 | $10.00 |
+| `claude-sonnet-5-5` | $2.00 | $0.10 | $2.50 / $4.00 | $10.00 |
+| `claude-sonnet-5` | $2.00 | $0.20 | $2.50 / $4.00 | $10.00 |
 | `claude-sonnet-4`, `4-5`, `4-6` | $3.00 | $0.30 | $3.75 / $6.00 | $15.00 |
+| `claude-haiku-5-5` (prompts up to 100K tokens) | $0.10 | $0.01 | $0.125 / $0.20 | $0.50 |
 | `claude-haiku-4-5` | $1.00 | $0.10 | $1.25 / $2.00 | $5.00 |
 | `claude-3-5-haiku` | $0.80 | $0.08 | $1.00 / $1.60 | $4.00 |
 
-Claude 4.6 and later bill the full 1M context at the standard rate. Earlier
-models charged a premium above 200K input tokens; ccmap does not apply it, so
-long-context sessions on those models are estimated low. Batch, fast-mode and
-data-residency multipliers are not applied. Claude 3 models other than Haiku 3.5
-are not on the current price page and use the generic `$3/$15` fallback.
+Claude 4.6 and later, except Haiku 5.5, bill the full 1M context at the
+standard rate. Earlier models charged a premium above 200K input tokens, and
+Haiku 5.5 charges 5x on requests whose prompt exceeds 100K tokens; ccmap does
+not apply either, so long-context requests on those models are estimated low.
+Batch, fast-mode and data-residency multipliers are not applied. Claude 3 models
+other than Haiku 3.5 are not on the current price page and use the generic
+`$3/$15` fallback.
 
 Sources: [OpenAI API pricing](https://developers.openai.com/api/docs/pricing),
 [GPT-5.3-Codex](https://developers.openai.com/api/docs/models/gpt-5.3-codex), and
 [GPT-5.2-Codex](https://developers.openai.com/api/docs/models/gpt-5.2-codex),
-checked on 2026-10-06.
+checked on 2026-10-12.
 The values below use the Standard short-context API rate; requests over 272K input
 tokens can have higher long-context rates that ccmap does not currently apply.
 
@@ -182,7 +186,7 @@ tool calls that a token count alone can't, which is why Grok's cost per token ca
 look higher than the table would suggest. The Grok entries in the table are only
 a fallback for turns that logged tokens without a cost. They use the rates under
 200K prompt tokens from [xAI's model pages](https://docs.x.ai/developers/models),
-checked on 2026-10-06 (USD per 1M tokens; cache writes are billed as input):
+checked on 2026-10-12 (USD per 1M tokens; cache writes are billed as input):
 
 | Model | Input | Cached input | Output |
 | --- | ---: | ---: | ---: |
